@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "collabtodo",
+    "slug": "collabtodo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.collabtodo.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "DETECT_SCREEN_CAPTURE"
+      ]
+    }
+  }
+} 

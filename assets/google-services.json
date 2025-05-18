@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "770967504920",
+    "project_id": "collabtodo-7dee0",
+    "storage_bucket": "collabtodo-7dee0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:770967504920:android:452b882595d280c4a35b6d",
+        "android_client_info": {
+          "package_name": "com.collabtodo.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "770967504920-687ch58rajurbvc9gle6q2gl2r8vlu55.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBgo7yBBVI7yIjm6faNpZ4m2b_qCpGmcOw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "770967504920-687ch58rajurbvc9gle6q2gl2r8vlu55.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
