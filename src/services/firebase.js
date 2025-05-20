@@ -1,6 +1,8 @@
 // Firebase configuration and initialization
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut as firebaseSignOut } from 'firebase/auth';
+// Explicitly import from 'firebase/auth/react-native' as per Firebase docs for RN persistence
+import { initializeAuth, getReactNativePersistence, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut as firebaseSignOut } from 'firebase/auth/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
 import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, addDoc, query, where, getDocs, arrayUnion, orderBy, limit } from 'firebase/firestore';
 import { getFunctions } from 'firebase/functions';
 import { getMessaging } from 'firebase/messaging';
@@ -32,8 +34,12 @@ if (!getApps().length) {
   app = getApp();
 }
 
-// Export Firebase services
-export const auth = getAuth(app);
+// Initialize Auth with persistence
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage)
+});
+
+// Export other Firebase services
 export const firestore = getFirestore(app);
 export const functions = getFunctions(app);
 export const messaging = getMessaging(app);
