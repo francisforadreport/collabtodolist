@@ -1,9 +1,9 @@
 // Firebase configuration and initialization
-import firebase from 'firebase/app';
-import 'firebase/auth';
-import 'firebase/firestore';
-import 'firebase/functions';
-import 'firebase/messaging';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut as firebaseSignOut } from 'firebase/auth';
+import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, addDoc, query, where, getDocs, arrayUnion, orderBy, limit } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
+import { getMessaging } from 'firebase/messaging';
 import {
   FIREBASE_API_KEY,
   FIREBASE_AUTH_DOMAIN,
@@ -14,7 +14,6 @@ import {
   FIREBASE_MEASUREMENT_ID
 } from '@env';
 
-// Firebase configuration - in a real app, these would be environment variables
 const firebaseConfig = {
   apiKey: FIREBASE_API_KEY,
   authDomain: FIREBASE_AUTH_DOMAIN,
@@ -25,22 +24,30 @@ const firebaseConfig = {
   measurementId: FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase if it hasn't been initialized already
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
+// Initialize Firebase
+let app;
+if (!getApps().length) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApp();
 }
 
 // Export Firebase services
-export const auth = firebase.auth();
-export const firestore = firebase.firestore();
-export const functions = firebase.functions();
-export const messaging = firebase.messaging();
+export const auth = getAuth(app);
+export const firestore = getFirestore(app);
+export const functions = getFunctions(app);
+export const messaging = getMessaging(app);
+
+// Re-export some auth functions for convenience if they are directly used by helper
+export { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, firebaseSignOut };
+// Re-export some firestore functions for convenience
+export { collection, doc, getDoc, setDoc, updateDoc, addDoc, query, where, getDocs, arrayUnion, orderBy, limit };
 
 // Authentication helpers
 export const signInWithGoogle = async () => {
-  const provider = new firebase.auth.GoogleAuthProvider();
+  const provider = new GoogleAuthProvider();
   try {
-    const result = await auth.signInWithPopup(provider);
+    const result = await signInWithPopup(auth, provider);
     return result.user;
   } catch (error) {
     console.error("Error signing in with Google", error);
@@ -50,7 +57,7 @@ export const signInWithGoogle = async () => {
 
 export const signInWithEmail = async (email, password) => {
   try {
-    const result = await auth.signInWithEmailAndPassword(email, password);
+    const result = await signInWithEmailAndPassword(auth, email, password);
     return result.user;
   } catch (error) {
     console.error("Error signing in with email", error);
@@ -60,8 +67,8 @@ export const signInWithEmail = async (email, password) => {
 
 export const signUp = async (email, password, displayName) => {
   try {
-    const result = await auth.createUserWithEmailAndPassword(email, password);
-    await result.user.updateProfile({ displayName });
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(result.user, { displayName });
     return result.user;
   } catch (error) {
     console.error("Error signing up", error);
@@ -71,7 +78,7 @@ export const signUp = async (email, password, displayName) => {
 
 export const signOut = async () => {
   try {
-    await auth.signOut();
+    await firebaseSignOut(auth);
   } catch (error) {
     console.error("Error signing out", error);
     throw error;
@@ -82,15 +89,15 @@ export const signOut = async () => {
 export const createUserProfile = async (user) => {
   if (!user) return;
 
-  const userRef = firestore.collection('users').doc(user.uid);
-  const snapshot = await userRef.get();
+  const userRef = doc(collection(firestore, 'users'), user.uid);
+  const snapshot = await getDoc(userRef);
 
-  if (!snapshot.exists) {
+  if (!snapshot.exists()) {
     const { email, displayName, photoURL } = user;
     const createdAt = new Date();
 
     try {
-      await userRef.set({
+      await setDoc(userRef, {
         email,
         displayName,
         photoURL,
@@ -102,7 +109,7 @@ export const createUserProfile = async (user) => {
     }
   } else {
     // Update last login
-    await userRef.update({
+    await updateDoc(userRef, {
       lastLogin: new Date()
     });
   }
@@ -113,19 +120,19 @@ export const createUserProfile = async (user) => {
 // Workspace helpers
 export const createWorkspace = async (name, userId) => {
   try {
-    const workspaceRef = firestore.collection('workspaces').doc();
+    const workspaceRef = doc(collection(firestore, 'workspaces'));
     const createdAt = new Date();
     
-    await workspaceRef.set({
+    await setDoc(workspaceRef, {
       name,
       createdBy: userId,
       createdAt,
       updatedAt: createdAt,
-      members: [{
+      members: arrayUnion({
         userId,
         role: 'admin',
         joinedAt: createdAt
-      }]
+      })
     });
     
     return workspaceRef.id;
@@ -137,10 +144,7 @@ export const createWorkspace = async (name, userId) => {
 
 export const getWorkspaces = async (userId) => {
   try {
-    const workspacesQuery = await firestore
-      .collection('workspaces')
-      .where('members', 'array-contains', { userId, role: 'admin' })
-      .get();
+    const workspacesQuery = await getDocs(query(collection(firestore, 'workspaces'), where('members', 'array-contains', { userId, role: 'admin' })));
     
     return workspacesQuery.docs.map(doc => ({
       id: doc.id,
@@ -155,20 +159,17 @@ export const getWorkspaces = async (userId) => {
 export const inviteToWorkspace = async (workspaceId, email) => {
   try {
     // In a real app, this would be a Cloud Function
-    const userQuery = await firestore
-      .collection('users')
-      .where('email', '==', email)
-      .get();
+    const userQuery = await getDocs(query(collection(firestore, 'users'), where('email', '==', email)));
     
     if (userQuery.empty) {
       throw new Error("User not found");
     }
     
     const userId = userQuery.docs[0].id;
-    const workspaceRef = firestore.collection('workspaces').doc(workspaceId);
+    const workspaceRef = doc(collection(firestore, 'workspaces'), workspaceId);
     
-    await workspaceRef.update({
-      members: firebase.firestore.FieldValue.arrayUnion({
+    await updateDoc(workspaceRef, {
+      members: arrayUnion({
         userId,
         role: 'member',
         joinedAt: new Date()
@@ -176,7 +177,7 @@ export const inviteToWorkspace = async (workspaceId, email) => {
     });
     
     // Create notification
-    await firestore.collection('notifications').add({
+    await addDoc(collection(firestore, 'notifications'), {
       type: 'workspace_invitation',
       userId,
       relatedId: workspaceId,
@@ -194,10 +195,10 @@ export const inviteToWorkspace = async (workspaceId, email) => {
 // Task list helpers
 export const createTaskList = async (workspaceId, title, userId) => {
   try {
-    const taskListRef = firestore.collection('taskLists').doc();
+    const taskListRef = doc(collection(firestore, 'taskLists'));
     const createdAt = new Date();
     
-    await taskListRef.set({
+    await setDoc(taskListRef, {
       workspaceId,
       title,
       createdBy: userId,
@@ -214,10 +215,7 @@ export const createTaskList = async (workspaceId, title, userId) => {
 
 export const getTaskLists = async (workspaceId) => {
   try {
-    const taskListsQuery = await firestore
-      .collection('taskLists')
-      .where('workspaceId', '==', workspaceId)
-      .get();
+    const taskListsQuery = await getDocs(query(collection(firestore, 'taskLists'), where('workspaceId', '==', workspaceId)));
     
     return taskListsQuery.docs.map(doc => ({
       id: doc.id,
@@ -232,10 +230,10 @@ export const getTaskLists = async (workspaceId) => {
 // Task helpers
 export const createTask = async (listId, title, description, userId) => {
   try {
-    const taskRef = firestore.collection('tasks').doc();
+    const taskRef = doc(collection(firestore, 'tasks'));
     const createdAt = new Date();
     
-    await taskRef.set({
+    await setDoc(taskRef, {
       listId,
       title,
       description,
@@ -257,10 +255,7 @@ export const createTask = async (listId, title, description, userId) => {
 
 export const getTasks = async (listId) => {
   try {
-    const tasksQuery = await firestore
-      .collection('tasks')
-      .where('listId', '==', listId)
-      .get();
+    const tasksQuery = await getDocs(query(collection(firestore, 'tasks'), where('listId', '==', listId)));
     
     return tasksQuery.docs.map(doc => ({
       id: doc.id,
@@ -274,15 +269,15 @@ export const getTasks = async (listId) => {
 
 export const assignTask = async (taskId, userId) => {
   try {
-    const taskRef = firestore.collection('tasks').doc(taskId);
+    const taskRef = doc(collection(firestore, 'tasks'), taskId);
     
-    await taskRef.update({
+    await updateDoc(taskRef, {
       assignedTo: userId,
       updatedAt: new Date()
     });
     
     // Create notification
-    await firestore.collection('notifications').add({
+    await addDoc(collection(firestore, 'notifications'), {
       type: 'task_assigned',
       userId,
       relatedId: taskId,
@@ -299,10 +294,10 @@ export const assignTask = async (taskId, userId) => {
 
 export const completeTask = async (taskId, userId) => {
   try {
-    const taskRef = firestore.collection('tasks').doc(taskId);
+    const taskRef = doc(collection(firestore, 'tasks'), taskId);
     const completedAt = new Date();
     
-    await taskRef.update({
+    await updateDoc(taskRef, {
       completed: true,
       completedAt,
       completedBy: userId,
@@ -310,21 +305,21 @@ export const completeTask = async (taskId, userId) => {
     });
     
     // Get task details for notification
-    const taskDoc = await taskRef.get();
+    const taskDoc = await getDoc(taskRef);
     const task = { id: taskDoc.id, ...taskDoc.data() };
     
     // Get workspace members for notifications
-    const taskListDoc = await firestore.collection('taskLists').doc(task.listId).get();
+    const taskListDoc = await getDoc(doc(collection(firestore, 'taskLists'), task.listId));
     const taskList = taskListDoc.data();
     
-    const workspaceDoc = await firestore.collection('workspaces').doc(taskList.workspaceId).get();
+    const workspaceDoc = await getDoc(doc(collection(firestore, 'workspaces'), taskList.workspaceId));
     const workspace = workspaceDoc.data();
     
     // Create notifications for all workspace members except the completer
     const notificationPromises = workspace.members
       .filter(member => member.userId !== userId)
       .map(member => 
-        firestore.collection('notifications').add({
+        addDoc(collection(firestore, 'notifications'), {
           type: 'task_completed',
           userId: member.userId,
           relatedId: taskId,
@@ -345,12 +340,7 @@ export const completeTask = async (taskId, userId) => {
 // Notification helpers
 export const getNotifications = async (userId) => {
   try {
-    const notificationsQuery = await firestore
-      .collection('notifications')
-      .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
-      .limit(20)
-      .get();
+    const notificationsQuery = await getDocs(query(collection(firestore, 'notifications'), where('userId', '==', userId), orderBy('createdAt', 'desc'), limit(20)));
     
     return notificationsQuery.docs.map(doc => ({
       id: doc.id,
@@ -364,7 +354,7 @@ export const getNotifications = async (userId) => {
 
 export const markNotificationAsRead = async (notificationId) => {
   try {
-    await firestore.collection('notifications').doc(notificationId).update({
+    await updateDoc(doc(collection(firestore, 'notifications'), notificationId), {
       read: true
     });
     
@@ -374,5 +364,3 @@ export const markNotificationAsRead = async (notificationId) => {
     throw error;
   }
 };
-
-export default firebase;

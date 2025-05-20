@@ -15,3 +15,5 @@ web-build/
 node_modules
 google-services.json
 assets/google-services.json
+rules.md
+
