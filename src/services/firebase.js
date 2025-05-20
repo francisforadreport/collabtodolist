@@ -4,15 +4,25 @@ import 'firebase/auth';
 import 'firebase/firestore';
 import 'firebase/functions';
 import 'firebase/messaging';
+import {
+  FIREBASE_API_KEY,
+  FIREBASE_AUTH_DOMAIN,
+  FIREBASE_PROJECT_ID,
+  FIREBASE_STORAGE_BUCKET,
+  FIREBASE_MESSAGING_SENDER_ID,
+  FIREBASE_APP_ID,
+  FIREBASE_MEASUREMENT_ID
+} from '@env';
 
 // Firebase configuration - in a real app, these would be environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyBgo7yBBVI7yIjm6faNpZ4m2b_qCpGmcOw",
-  authDomain: "com.collabtodo.app",
-  projectId: "collabtodo-7dee0",
-  storageBucket: "collaborative-todo-app.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "1:770967504920:android:452b882595d280c4a35b6d"
+  apiKey: FIREBASE_API_KEY,
+  authDomain: FIREBASE_AUTH_DOMAIN,
+  projectId: FIREBASE_PROJECT_ID,
+  storageBucket: FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: FIREBASE_MESSAGING_SENDER_ID,
+  appId: FIREBASE_APP_ID,
+  measurementId: FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase if it hasn't been initialized already
